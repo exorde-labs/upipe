@@ -1,4 +1,4 @@
-name: Build & Publish the container image - production
+name: Build
 
 concurrency:
   group: build_docker_production
@@ -48,8 +48,8 @@ jobs:
             linux/arm64
           push: true
           tags: |
-            exordelabs/exorde-upipe:${{ github.event.release.tag_name || github.ref }}
-            exordelabs/exorde-upipe:latest
+            exordelabs/upipe:${{ github.event.release.tag_name || github.ref }}
+            exordelabs/upipe:latest
 
       - name: Send a message to slack if CI has succeeded
         if: ${{ success() }}
