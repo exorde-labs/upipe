@@ -265,7 +265,8 @@ async def configuration_init(app):
 
 
 def start_spotter():
-    setup_tracing()
+    if os.getenv("TRACE", False) == "true":
+        setup_tracing()
     logging.basicConfig(
         level=logging.DEBUG, 
         format='%(asctime)s - %(levelname)s - %(message)s'
