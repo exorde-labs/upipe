@@ -101,6 +101,32 @@ from exorde_data import CreatedAt, Content, Domain, Url, Title
 
 # Summary, Picture, Author, ExternalId, ExternalParentId,
 
+
+async def get_target():
+    """Asks the orchestrator for a list of `bpipe` services"""
+    async def fetch_ips_from_service(
+        filter_key: str, filter_value:str
+    ) -> list[str]:
+        orchestrator_name = os.getenv("ORCHESTRATOR_NAME", "orchestrator")
+        base_url = f"http://{orchestrator_name}:8000/get"
+        query_params = {filter_key: filter_value}
+        async with ClientSession() as session:
+            async with session.get(base_url, params=query_params) as response:
+                if response.status == 200:
+                    ips = await response.json()
+                    return ips
+                else:
+                    error_message = await response.text()
+                    print(f"Failed to fetch IPs: {error_message}")
+                    return []
+    """ retrieves a list of bpipes """
+    targets = await fetch_ips_from_service("network.exorde.service", "bpipe")
+    logging.info(f"get_target.targets = {targets}")
+    choice = random.choice(targets)
+    logging.info(f"get_target.choice = {choice}")
+    return choice
+
+
 async def processing_logic(app, current_item):
     tracer = trace.get_tracer(__name__)
     with tracer.start_as_current_span("process_item") as processing_span:
@@ -115,7 +141,7 @@ async def processing_logic(app, current_item):
 
             # New span for sending the processed item
             with tracer.start_as_current_span("send_processed_item") as send_span:
-                target = random.choice(os.getenv('batch_target', '').split(','))
+                target = await get_target()
                 if target:
                     async with ClientSession() as session:
                         async with session.post(
