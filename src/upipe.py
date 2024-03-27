@@ -198,7 +198,7 @@ def thread_function(app):
                 internal_loop_count.inc({})
                 try:
                     current_item = await asyncio.wait_for(
-                        app['process_queue'].get(), timeout=1.0
+                        app['process_queue'].get(), timeout=int(os.getenv("TIMEOUT", 1))
                     )
                 except asyncio.TimeoutError:
                     current_item = None
@@ -213,6 +213,7 @@ def thread_function(app):
             await asyncio.sleep(1)
 
     loop.run_until_complete(process_internal())
+
 
 def start_processing_thread(app):
     """
@@ -231,6 +232,7 @@ def start_processing_thread(app):
     monitor = threading.Thread(target=monitor_thread)
     monitor.start()
     return stop_event, monitor
+
 
 async def setup_thread(app):
     app['process_queue'] = asyncio.Queue()
