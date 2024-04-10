@@ -205,7 +205,7 @@ def thread_function(app):
                 if current_item is not None:
                     logging.info("processing new item")
                     await asyncio.wait_for(
-                        processing_logic(app, current_item), timeout=1
+                        processing_logic(app, current_item), timeout=int(os.getenv("TIMEOUT", 1))
                     )
             except:
                 logging.exception("An error occured in processor thread")
