@@ -14,7 +14,7 @@ import threading
 
 from opentelemetry import trace
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, BatchSpanProcessor
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
@@ -31,21 +31,41 @@ from lab_initialization import lab_initialization
 # from split_item import split_item # UNUSED TODO
 
 
-def setup_tracing():
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
+def setup_tracing(no_tracing=False):
+    class NoOpExporter(SpanExporter):
+        def export(self, __spans__):
+            # Ignore the spans
+            return SpanExportResult.SUCCESS
+
+        def shutdown(self):
+            # Perform any necessary shutdown operations
+            pass
+    logging.info("setting up tracing")
     resource = Resource(attributes={
         ResourceAttributes.SERVICE_NAME: "item_processor"
     })
-
+    logging.info("created Tracer Provider")
     trace_provider = TracerProvider(resource=resource)
-    jaeger_exporter = JaegerExporter(
-        agent_host_name="jaeger",
-        agent_port=6831,
-    )
-
-    span_processor = BatchSpanProcessor(jaeger_exporter)
-    trace_provider.add_span_processor(span_processor)
-    trace.set_tracer_provider(trace_provider)
     
+    logging.info(f"no_tracing option is {no_tracing}".format(no_tracing))
+    if no_tracing:
+        logging.info("NO TRACE OPTION")
+        no_op_exporter = NoOpExporter()
+        noop_processor = SimpleSpanProcessor(no_op_exporter)
+        trace_provider.add_span_processor(noop_processor)
+    else:
+        logging.info("WITH TRACE OPTION")
+        jaeger_exporter = JaegerExporter(
+                agent_host_name="jaeger",
+                agent_port=6831,
+            )
+        span_processor = BatchSpanProcessor(jaeger_exporter)
+        trace_provider.add_span_processor(span_processor)
+    trace.set_tracer_provider(trace_provider)
+
+
 app = web.Application()
 
 
@@ -293,12 +313,14 @@ async def configuration_init(app):
 
 
 def start_spotter():
-    if os.getenv("TRACE", False) == "true":
-        setup_tracing()
     logging.basicConfig(
         level=logging.DEBUG, 
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
+    if os.getenv("TRACE", False) == "true":
+        setup_tracing()
+    else:
+        setup_tracing(no_tracing=True)
     port = int(os.environ.get("PORT", "8000"))
     logging.info(f"Hello World! I'm running on {port}")
     signal.signal(signal.SIGINT, terminate)
