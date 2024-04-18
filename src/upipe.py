@@ -48,7 +48,7 @@ def setup_tracing(no_tracing=False):
     })
     logging.info("created Tracer Provider")
     trace_provider = TracerProvider(resource=resource)
-    
+
     logging.info(f"no_tracing option is {no_tracing}".format(no_tracing))
     if no_tracing:
         logging.info("NO TRACE OPTION")

@@ -26,7 +26,8 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libxmlsec1-dev \
     liblzma-dev \
-    git
+    git \
+    libhdf5-dev
 
 # Download and compile Python 3.10
 RUN cd /tmp && \
