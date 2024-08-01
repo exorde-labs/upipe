@@ -7,7 +7,6 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo 'tzdata tzdata/Areas select Europe' | debconf-set-selections \
     && echo 'tzdata tzdata/Zones/Europe select Berlin' | debconf-set-selections
 
-
 # Install dependencies required for compiling Python
 RUN apt-get update && apt-get install -y \
     wget \

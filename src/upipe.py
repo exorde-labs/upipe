@@ -23,6 +23,7 @@ from opentelemetry.trace import StatusCode
 from aioprometheus.collectors import Counter, Histogram, Gauge
 
 from exorde_data import Item
+from exorde_data.get_target import get_target
 from process import process, TooBigError
 from exorde_data.get_live_configuration import get_live_configuration, LiveConfiguration
 
@@ -122,39 +123,6 @@ from exorde_data import CreatedAt, Content, Domain, Url, Title
 # Summary, Picture, Author, ExternalId, ExternalParentId,
 
 
-async def get_target():
-    """Asks the orchestrator for a list of `bpipe` services"""
-    async def fetch_ips_from_service(
-        filter_key: str, filter_value:str
-    ) -> list[str]:
-        orchestrator_name = os.getenv("ORCHESTRATOR_NAME", "orchestrator")
-        base_url = f"http://{orchestrator_name}:8000/get"
-        query_params = {filter_key: filter_value}
-        async with ClientSession() as session:
-            async with session.get(base_url, params=query_params) as response:
-                if response.status == 200:
-                    ips = await response.json()
-                    return ips
-                else:
-                    error_message = await response.text()
-                    print(f"Failed to fetch IPs: {error_message}")
-                    return []
-    """ retrieves a list of bpipes """
-    pre_loaded_targets = os.getenv("BPIPE_ADDR", "")
-    targets = ''
-    if len(pre_loaded_targets) == 0:
-        targets = await fetch_ips_from_service("network.exorde.service", "bpipe")
-    else:
-        if ',' in pre_loaded_targets:
-            targets = pre_loaded_targets.split(',')
-        else:
-            targets = pre_loaded_targets
-    logging.info(f"get_target.targets = {targets}")
-    choice = random.choice(targets)
-    logging.info(f"get_target.choice = {choice}")
-    return choice
-
-
 async def processing_logic(app, current_item):
     tracer = trace.get_tracer(__name__)
     with tracer.start_as_current_span("process_item") as processing_span:
@@ -169,7 +137,7 @@ async def processing_logic(app, current_item):
 
             # New span for sending the processed item
             with tracer.start_as_current_span("send_processed_item") as send_span:
-                target = await get_target()
+                target = await get_target("bpipe", "BPIPE_ADDR")
                 if target:
                     async with ClientSession() as session:
                         async with session.post(
@@ -224,16 +192,39 @@ def thread_function(app):
             logging.info("internal loop")
             try:
                 internal_loop_count.inc({})
+
+                """
+                About usage of `process_queue.get()` inside the Thread function
+
+                While this call is within the threading context, the actual
+                waiting and retrieval from the asyncio queue is still happening
+                within the asyncio event loop.
+
+                In this particular usage, the potential concerns about asyncio
+                queue's lack of thread-safety are somewhat mitigated because:
+                    
+                    1. Asyncio Nature: Despite being called from within a separate
+                    thread, asyncio.wait_for() is still operating within the
+                    asyncio context, ensuring that the asyncio queue is accessed
+                    in a safe manner according to asyncio's concurrency model.
+
+                    2. Timeout Handling: The use of asyncio.wait_for() with a 
+                    timeout ensures that the thread doesn't block indefinitely
+                    while waiting for an item from the queue. This helps prevent
+                    potential deadlocks or long waits in the case of an empty queue.
+                """
                 try:
                     current_item = await asyncio.wait_for(
-                        app['process_queue'].get(), timeout=int(os.getenv("TIMEOUT", 1))
+                        app['process_queue'].get(),
+                        timeout=int(os.getenv("TIMEOUT", 1))
                     )
                 except asyncio.TimeoutError:
                     current_item = None
                 if current_item is not None:
                     logging.info("processing new item")
                     await asyncio.wait_for(
-                        processing_logic(app, current_item), timeout=int(os.getenv("TIMEOUT", 1))
+                        processing_logic(app, current_item),
+                        timeout=int(os.getenv("TIMEOUT", 1))
                     )
             except:
                 logging.exception("An error occured in processor thread")
@@ -263,10 +254,13 @@ def start_processing_thread(app):
 
 
 async def setup_thread(app):
+    logging.info("creating process queue")
     app['process_queue'] = asyncio.Queue()
+    logging.info("process queue created")
     stop_event, monitor_thread = start_processing_thread(app)
     app['stop_event'] = stop_event
     app['monitor_thread'] = monitor_thread
+    logging.info("Thread has been setup")
 
 # Make sure to properly handle cleanup on app shutdown
 async def cleanup(app):
@@ -279,7 +273,6 @@ async def receive_item(request):
     tracer = trace.get_tracer(__name__)
     with tracer.start_as_current_span("receive_item") as span:
         start_time = time.time()  # Record the start time
-
         raw_item = await request.json()
         try:
             item: Item = Item(
@@ -289,7 +282,14 @@ async def receive_item(request):
                 domain=Domain(raw_item['domain']),
                 url=Url(raw_item['url'])
             )
-            await app['process_queue'].put(item)
+
+            process_queue = app['process_queue']
+
+            print(process_queue)
+            print(f"Item is :", item)
+
+            await process_queue.put(item)
+
             queue_length_gauge.set({}, app['process_queue'].qsize())
             receive_counter.inc({})
             logging.info(item)
@@ -311,6 +311,7 @@ async def receive_item(request):
 app.router.add_post('/', receive_item)
 app.router.add_get('/', healthcheck)
 app.router.add_get('/metrics', metrics)
+
 
 async def configuration_init(app):
     # arguments, live_configuration
