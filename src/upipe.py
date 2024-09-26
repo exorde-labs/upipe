@@ -67,7 +67,7 @@ def setup_tracing(no_tracing=False):
     trace.set_tracer_provider(trace_provider)
 
 
-app = web.Application()
+app = web.Application(client_max_size=500 * 1024 * 1024)
 
 
 queue_length_gauge = Gauge(
