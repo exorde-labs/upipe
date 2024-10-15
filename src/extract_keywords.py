@@ -2,6 +2,7 @@ import yake
 import re
 import string
 from keybert import KeyBERT
+import nltk
 
 from exorde_data import Keywords, Translation
 
