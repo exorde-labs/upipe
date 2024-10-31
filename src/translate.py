@@ -1,6 +1,6 @@
 import logging
 from ftlangdetect import detect as _detect
-from exorde_data import Translation, Language, Translated, Item
+from exorde.models import Translation, Language, Translated, Item
 
 
 from_lang = lambda from_code, installed_languages: list(
@@ -20,12 +20,13 @@ def translate(
     item: Item, installed_languages, low_memory: bool = False
 ) -> Translation:
     text = str(item.content if item.content else item.title)
-    language = _detect(text, low_memory)
+    language = _detect(text.replace("\n", " "), low_memory)
     try:
         if language["lang"] != "en":
             translated = translation(
                 language["lang"], "en", installed_languages
             ).translate(text)
+            translated.replace("▁", " ")
         else:
             translated = item.content
         return Translation(

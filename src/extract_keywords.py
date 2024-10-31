@@ -2,10 +2,14 @@ import yake
 import re
 import string
 from keybert import KeyBERT
-import nltk
+try:
+    import nltk
+    nltk.download('punkt')
+except:
+    print("nltk already downloaded or error")
+from exorde.models import Keywords, Translation
 
-from exorde_data import Keywords, Translation
-
+MAX_KEYWORD_LENGTH = 100
 
 def is_good_1gram(word):
     special_chars = set(string.punctuation.replace("-", ""))
@@ -88,7 +92,12 @@ def get_extra_special_keywords(text):
         isalpha_count = sum(1 for char in word if char.isalpha())
         total_chars = len(word)
         punctuation = re.compile(r'[^\w\s,]')
-        return (uppercase_count / total_chars >= 0.3) and (punctuation.search(word) is not None) and (isalpha_count>1)
+        # Prevent division by zero
+        if total_chars > 0:
+            return (uppercase_count / total_chars >= 0.3) and (punctuation.search(word) is not None) and (isalpha_count>1)
+        else:
+            return False
+
     
     words = nltk.word_tokenize(text)
     filtered_words = filter(is_valid_keyword, words)
@@ -134,7 +143,11 @@ def get_symbol_acronyms(text):
         uppercase_count = sum(1 for char in word if char.isupper())
         isalpha_count = sum(1 for char in word if char.isalpha())
         total_chars = len(word)
-        return (uppercase_count / total_chars >= 0.3) and (isalpha_count>=1) and len(word) >= 2
+        # Prevent division by zero
+        if total_chars > 0:
+            return (uppercase_count / total_chars >= 0.3) and (isalpha_count>=1) and len(word) >= 2
+        else:
+            return False
     
     # split by space and special punctuation: comma, point, period
     # not nltk tokenize
@@ -151,12 +164,31 @@ def remove_invalid_keywords(input_list):
     for s in input_list:
         # remove any double slash and any url. ex: "//CONNECT.COM" and "https://CONNECT.COM"
         s = re.sub(r'//|https?:\/\/.*[\r\n]*', '', s)
-        if len(s) > 2:
+        # Add check for length of the keyword
+        if 2 < len(s) and len(s) <= MAX_KEYWORD_LENGTH and s not in output_list:
             output_list.append(s)
     return output_list
+    
+def process_keywords(keywords):
+    processed_keywords = []
+    for keyword in keywords:
+        if keyword.isupper():
+            # If the keyword is fully uppercase, keep it and add a lowercase version
+            processed_keywords.append(keyword)
+            processed_keywords.append(keyword.lower())
+        elif not keyword.islower():
+            # If the keyword is partly upper & lowercase, convert it to lowercase
+            processed_keywords.append(keyword.lower())
+        else:
+            # If the keyword is already lowercase, keep it as is
+            processed_keywords.append(keyword)
+    
+    # Remove case-sensitive duplicates
+    return list(dict.fromkeys(processed_keywords))
+
 
 def extract_keywords(translation: Translation) -> Keywords:
-    content: str = translation.translation       
+    content: str = translation.translation
     kx1 = _extract_keywords1(content)
     keywords_weighted = list(set(kx1))
     keywords_ = [e[0] for e in set(keywords_weighted)]
@@ -176,6 +208,8 @@ def extract_keywords(translation: Translation) -> Keywords:
         keywords_.extend(acronyms)
         keywords_ = get_concatened_keywords(keywords_)
         keywords_ = remove_invalid_keywords(keywords_)
+        # Process the keywords for case handling
+        keywords_ = process_keywords(keywords_)
     except Exception as e:
         print(f"Error in advanced keywords extraction: {e}")
     return Keywords(list(set(keywords_)))
