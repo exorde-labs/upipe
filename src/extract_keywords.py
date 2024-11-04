@@ -7,7 +7,7 @@ try:
     nltk.download('punkt')
 except:
     print("nltk already downloaded or error")
-from exorde.models import Keywords, Translation
+from exorde_data import Keywords, Translation
 
 MAX_KEYWORD_LENGTH = 100
 
