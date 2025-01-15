@@ -118,7 +118,7 @@ class Busy(Exception):
         super().__init__(self.message)
 
 
-from exorde_data import CreatedAt, Content, Domain, Url, Title
+from exorde_data import CreatedAt, Content, Domain, Url, Title, ExternalId, Author, ExternalParentId
 
 # Summary, Picture, Author, ExternalId, ExternalParentId,
 
@@ -280,7 +280,10 @@ async def receive_item(request):
                 title=Title(raw_item.get('title', '')),
                 content=Content(raw_item['content']),
                 domain=Domain(raw_item['domain']),
-                url=Url(raw_item['url'])
+                url=Url(raw_item['url']),
+                external_id=ExternalId(raw_item.get('external_id', '')),
+                external_parent_id=ExternalParentId(raw_item.get('external_parent_id', '')),
+                author=Author(raw_item.get('author', '')
             )
 
             process_queue = app['process_queue']
