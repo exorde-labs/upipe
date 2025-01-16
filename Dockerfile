@@ -73,7 +73,8 @@ RUN pip3.10 install --no-cache-dir \
         wtpsplit==1.3.0 \
         yake==0.4.8 \
         keybert==0.7.0 \
-        spacy==3.5.1
+        spacy==3.5.1 \
+        scikit-learn==1.5.2
 
 # Clean cache now that we have installed everything
 RUN rm -rf /root/.cache/* \

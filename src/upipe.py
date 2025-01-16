@@ -284,7 +284,7 @@ async def receive_item(request):
                 external_id=ExternalId(raw_item.get('external_id', '')),
                 external_parent_id=ExternalParentId(raw_item.get('external_parent_id', '')),
                 author=Author(raw_item.get('author', '')
-            )
+            ))
 
             process_queue = app['process_queue']
 
