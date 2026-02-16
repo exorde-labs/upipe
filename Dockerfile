@@ -54,27 +54,31 @@ RUN pip3.10 install opentelemetry-api \
         opentelemetry-exporter-jaeger \
         opentelemetry-instrumentation-aiohttp-client \
         opentelemetry-sdk opentelemetry-exporter-otlp \
-        aioprometheus==23.3.0
+        aioprometheus==23.3.0 \
+        Deprecated
 
 RUN pip3.10 install --no-cache-dir \
         asyncio \
         aiohttp \
         pyyaml \
+        pybind11 \
         tiktoken==0.4.0 \
         numpy==1.23.4 \
-        fasttext==0.9.2 \
         fasttext-langdetect==1.0.5 \
         huggingface_hub==0.14.1 \
         pandas==1.5.3 \
         sentence-transformers==2.2.2 \
         tensorflow==2.12.0 \
         torch==1.13.0 \
-        argostranslate==1.8.0 \
+        argostranslate==1.9.0 \
         wtpsplit==1.3.0 \
         yake==0.4.8 \
         keybert==0.7.0 \
         spacy==3.5.1 \
         scikit-learn==1.5.2
+
+# Install fasttext separately with --no-build-isolation so pybind11 is accessible
+RUN pip3.10 install --no-cache-dir --no-build-isolation fasttext==0.9.2
 
 # Clean cache now that we have installed everything
 RUN rm -rf /root/.cache/* \
